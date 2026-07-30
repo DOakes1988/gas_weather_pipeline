@@ -85,25 +85,6 @@ def load_data(pair_list):
                         WHERE fact_gas_price.gas_price IS DISTINCT FROM EXCLUDED.gas_price;
                     """)
 
-                    # template for a single row placeholder
-                    """row_template = sql.SQL("({}, {}, {})").format(sql.Placeholder(), sql.Placeholder(), sql.Placeholder())
-
-                    # join templates by commas
-                    values_block = sql.SQL(", ").join(row_template for _ in pair_list)
-
-                    # SQL query
-                    query = sql.SQL("""
-                        #INSERT INTO fact_gas_price (date, gas_price, price_region)
-                        #VALUES {values}
-                        #ON CONFLICT ON CONSTRAINT fact_gas_price_pkey
-                        #DO UPDATE SET gas_price = EXCLUDED.gas_price
-                        #WHERE fact_gas_price.gas_price IS DISTINCT FROM EXCLUDED.gas_price;
-                    """).format(values=values_block)
-
-                    flat_args = [val for pair in pair_list for val in pair]
-
-                    cur.execute(query, flat_args)
-                    """
     except OperationalError:
     # Handles connection drops, bad credentials, timeout issues
         logger.error("Database connection failure!", exc_info=True)
