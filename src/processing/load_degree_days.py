@@ -19,6 +19,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+""" Calculate the weighted average, based off population size, of all states in region """
 def calc_weighted_average(l_list):
     weighted_sum = Decimal(0)
     total_population = 0
@@ -98,8 +99,6 @@ def load_data(pair_list):
         logger.critical("Unexpected non-database error", exc_info=True)
 
 def parse_degree_days(target_file):
-    #file_path_ = Path("D:/Data_analyst_ramp/gas_weather_pipeline/data/raw/degree_days/" + target_file)
-
     target_states = {
         "CONNECTICUT", "DELAWARE", "DISTRCT COLUMBIA",
         "FLORIDA", "GEORGIA", "MAINE", "MARYLAND", "MASSACHUSETTS",
