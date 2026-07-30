@@ -1,57 +1,69 @@
-import urllib
-from urllib.request import urlopen
+import re
+from decimal import Decimal
+from pathlib import Path
+from datetime import datetime, timedelta
+from utils.state_populations import STATE_POPULATIONS
 
-def parse_unknown_fixed_width(f_url):
-    # 1. Download and decode the file content into lines
-    with urllib.request.urlopen(f_url) as response:
-        lines = [f_line.decode('utf-8').rstrip('\r\n') for f_line in response]
+def calc_weighted_average(l_list):
+    weighted_sum = Decimal(0)
+    total_population = 0
 
-    if not lines:
-        return []
+    for state_name, value in l_list:
+        if state_name in STATE_POPULATIONS:
+            population = STATE_POPULATIONS[state_name]
+            weighted_sum += value * population
+            total_population += population
 
-    # Filter out completely empty lines
-    lines = [l for l in lines if l.strip()]
-    max_len = max(len(l) for l in lines)
+    if total_population == 0:
+        return None
 
-    # 2. Track which character positions are strictly whitespace across ALL rows
-    # Initialize a list tracking if a position is a space character
-    space_mask = [True] * max_len
+    return weighted_sum / total_population
 
-    for f_line in lines:
-        for j in range(max_len):
-            if j < len(f_line):
-                if f_line[j] != ' ':
-                    space_mask[j] = False
-            # If the line is shorter than max_len, the trailing area is implicitly space
+folder_path = Path("D:/Data_analyst_ramp/gas_weather_pipeline/data/raw/degree_days/jan 1, 2000.txt")
 
-    # 3. Convert the space mask into column slice indices
-    # We find where a text block starts and where it ends
-    col_indices = []
-    in_column = False
-    start_idx = 0
+target_states = {
+    "CONNECTICUT", "DELAWARE", "DISTRCT COLUMBIA",
+    "FLORIDA", "GEORGIA", "MAINE", "MARYLAND", "MASSACHUSETTS",
+    "NEW HAMPSHIRE", "NEW JERSEY", "NEW YORK",
+    "NORTH CAROLINA", "OHIO", "PENNSYLVANIA", "RHODE ISLAND",
+    "SOUTH CAROLINA", "VERMONT", "VIRGINIA", "WEST VIRGINIA"
+}
 
-    for j, is_space in enumerate(space_mask):
-        if not is_space and not in_column:
-            # Found the start of a data column
-            start_idx = j
-            in_column = True
-        elif is_space and in_column:
-            # Found a vertical gap of whitespace
-            col_indices.append((start_idx, j))
-            in_column = False
+temp_lines = []
+line_list = []
 
-    # Catch the last column if it goes to the end of the line
-    if in_column:
-        col_indices.append((start_idx, max_len))
+with open(str(folder_path), "r") as f:
+    for line in f:
+        temp_lines.append(line.rstrip())
 
-    # 4. Extract the data using the discovered slice coordinates
-    f_parsed_data = []
-    for f_line in lines:
-        row = []
-        for start, end in col_indices:
-            # Slice the string and strip trailing/leading padding spaces
-            field = f_line[start:end].strip()
-            row.append(field)
-        f_parsed_data.append(row)
+# File Date: remove double spaces if present
+original_date = re.sub(r" {2,}", " ", temp_lines[5][-12:])
 
-    return f_parsed_data
+# Convert to type date
+correct_date = datetime.strptime(original_date, "%b %d, %Y").date() - timedelta(days=1)
+
+
+population_sum = sum(STATE_POPULATIONS.values())
+
+# End parsing at end of state data
+end_count = 0
+for line in temp_lines:
+    if line.strip() == "REGION":
+        break
+    end_count += 1
+
+for i in range(15, end_count):
+    state = temp_lines[i][:18].strip()
+    storage = temp_lines[i][18:23].strip()
+
+    if state in target_states:
+        line_list.append((str(state), Decimal(storage)))
+
+weighted_average = calc_weighted_average(line_list)
+
+print(f"Weighted Average: {weighted_average}")
+
+for j in range(len(line_list)):
+   print(f"[{j}]: {line_list[j]}")
+
+print(f"File Date: {correct_date}")

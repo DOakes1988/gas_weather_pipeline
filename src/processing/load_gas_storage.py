@@ -11,7 +11,7 @@ from pathlib import Path
 from utils.file_tracker import FileTracker
 
 logging.basicConfig(
-    filename='gas_price_log.log',
+    filename='gas_storage_log.log',
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 """ Parses raw data and transforms into list of tuples (date, decimal, integer) """
-def parse_gas_price(target_file):
+def parse_gas_storage(target_file):
     # loads json file and returns a Python Object
     data = json.load(target_file)
     pair_list = []
@@ -30,7 +30,7 @@ def parse_gas_price(target_file):
         if not item["period"] or not item["value"]:
             continue
 
-        pair_list.append((datetime.strptime(item["period"], "%Y-%m-%d").date(), Decimal(item["value"]), 2))
+        pair_list.append((datetime.strptime(item["period"], "%Y-%m-%d").date(), Decimal(item["value"]), 1))
 
     return pair_list
 
@@ -62,12 +62,12 @@ def load_data(pair_list):
                     cur.execute("""
                         CREATE TEMPORARY TABLE staging_temp (
                             date DATE,
-                            gas_price NUMERIC,
-                            price_region INTEGER
+                            gas_total NUMERIC,
+                            storage_region INTEGER
                         ) ON COMMIT DROP;
                     """)
 
-                    copy_query = sql.SQL("COPY {} (date, gas_price, price_region) FROM STDIN").format(
+                    copy_query = sql.SQL("COPY {} (date, gas_total, storage_region) FROM STDIN").format(
                         sql.Identifier("staging_temp")
                     )
 
@@ -76,34 +76,15 @@ def load_data(pair_list):
                         for row in pair_list:
                             copy.write_row(row)
 
-                    # merge data into gas price table with upserts
+                    # merge data into gas storage table with upserts
                     cur.execute("""
-                        INSERT INTO fact_gas_price (date, gas_price, price_region)
-                        SELECT date, gas_price, price_region FROM staging_temp
-                        ON CONFLICT ON CONSTRAINT fact_gas_price_pkey
-                        DO UPDATE SET gas_price = EXCLUDED.gas_price
-                        WHERE fact_gas_price.gas_price IS DISTINCT FROM EXCLUDED.gas_price;
+                        INSERT INTO fact_gas_storage (date, gas_total, storage_region)
+                        SELECT date, gas_total, storage_region FROM staging_temp
+                        ON CONFLICT ON CONSTRAINT fact_gas_storage_pkey
+                        DO UPDATE SET gas_total = EXCLUDED.gas_total
+                        WHERE fact_gas_storage.gas_total IS DISTINCT FROM EXCLUDED.gas_total;
                     """)
 
-                    # template for a single row placeholder
-                    """row_template = sql.SQL("({}, {}, {})").format(sql.Placeholder(), sql.Placeholder(), sql.Placeholder())
-
-                    # join templates by commas
-                    values_block = sql.SQL(", ").join(row_template for _ in pair_list)
-
-                    # SQL query
-                    query = sql.SQL("""
-                        #INSERT INTO fact_gas_price (date, gas_price, price_region)
-                        #VALUES {values}
-                        #ON CONFLICT ON CONSTRAINT fact_gas_price_pkey
-                        #DO UPDATE SET gas_price = EXCLUDED.gas_price
-                        #WHERE fact_gas_price.gas_price IS DISTINCT FROM EXCLUDED.gas_price;
-                    """).format(values=values_block)
-
-                    flat_args = [val for pair in pair_list for val in pair]
-
-                    cur.execute(query, flat_args)
-                    """
     except OperationalError:
     # Handles connection drops, bad credentials, timeout issues
         logger.error("Database connection failure!", exc_info=True)
@@ -117,9 +98,9 @@ def load_data(pair_list):
         logger.critical("Unexpected non-database error", exc_info=True)
 
 
-tracker = FileTracker("gas_price_opened_files.log")
+tracker = FileTracker("gas_storage_opened_files.log")
 
-folder_path = Path("D:/Data_analyst_ramp/gas_weather_pipeline/data/raw/gas_price/")
+folder_path = Path("D:/Data_analyst_ramp/gas_weather_pipeline/data/raw/gas_storage/")
 
 # parse all files in directory
 for file_path in folder_path.iterdir():
@@ -129,7 +110,7 @@ for file_path in folder_path.iterdir():
         # file hasn't been processed before
         if file_object:
             try:
-                pairs = parse_gas_price(file_object)
+                pairs = parse_gas_storage(file_object)
                 load_data(pairs)
             except Exception as e:
                 logger.error(f"Failed processing {file_path}", exc_info=True)

@@ -58,10 +58,10 @@
 
     * web scraper
     * API
-  * parse raw data
+  * process raw data
 
-    * clean data
-  * load parsed data into PostgreSQL
+    * clean data in Python
+    * load parsed data into PostgreSQL using psycopg
 
 
 
@@ -122,16 +122,15 @@ File structure:
     * fetch\_gas\_price.py
     * fetch\_gas\_storage.py
     * fetch\_degree\_days.py
-  * parsing/
+  * processing/
 
-    * parse\_gas\_price.py
-    * parse\_gas\_storage.py
-    * parse\_degree\_days.py
-  * load/
+    * load\_gas\_price.py
+    * load\_gas\_storage.py
+    * load\_degree\_days.py
 
-    * load\_to\_postgres.py
   * utils/ (shared helpers - DB connection, logging, date alignment logic)
-
+    * file tracker (makes sure we only process raw file once)
+  
 
 
 * sql/
@@ -151,7 +150,7 @@ File structure:
 
 
 
-* .env/ (local secrets - API keys, DB password; NEVER COMMITTED)
+* .env/ (local secrets - API keys, DB password; not committed)
 
 
 
